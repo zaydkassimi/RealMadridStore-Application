@@ -8,6 +8,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.location.Location
 import android.net.Uri
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -42,6 +46,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.bousmah.realmadridstore_zayd.BuildConfig
 import com.bousmah.realmadridstore_zayd.data.ChatMessage
 import com.bousmah.realmadridstore_zayd.data.MockData
 import com.bousmah.realmadridstore_zayd.data.Product
@@ -185,6 +190,10 @@ fun StoreLocatorScreen() {
     val madrid = LatLng(40.453054, -3.688344)
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(madrid, 10f)
+    }
+
+    LaunchedEffect(Unit) {
+        Log.d("MAPS_KEY", "Key injected: ${BuildConfig.MAPS_API_KEY}")
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -401,6 +410,52 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
         }
     }
 
+    var isRecording by remember { mutableStateOf(false) }
+    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    val speechIntent = remember {
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+        }
+    }
+
+    val recognitionListener = remember {
+        object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onBeginningOfSpeech() { isRecording = true }
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { isRecording = false }
+            override fun onError(error: Int) { isRecording = false }
+            override fun onResults(results: Bundle?) {
+                val data = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!data.isNullOrEmpty()) {
+                    viewModel.onInputChange(data[0])
+                }
+                isRecording = false
+            }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        }
+    }
+
+    DisposableEffect(Unit) {
+        speechRecognizer.setRecognitionListener(recognitionListener)
+        onDispose {
+            speechRecognizer.destroy()
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            speechRecognizer.startListening(speechIntent)
+        } else {
+            Toast.makeText(context, "Microphone permission required", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
@@ -420,6 +475,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
         ChatInputBar(
             text = uiState.inputText,
             selectedImage = uiState.selectedImage,
+            isRecording = isRecording,
             onTextChange = { viewModel.onInputChange(it) },
             onSend = { viewModel.sendMessage() },
             onCameraClick = {
@@ -428,6 +484,18 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                     cameraLauncher.launch(photoUri)
                 } else {
                     permissionLauncher.launch(permission)
+                }
+            },
+            onMicClick = {
+                if (isRecording) {
+                    speechRecognizer.stopListening()
+                } else {
+                    val permission = Manifest.permission.RECORD_AUDIO
+                    if (ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED) {
+                        speechRecognizer.startListening(speechIntent)
+                    } else {
+                        audioPermissionLauncher.launch(permission)
+                    }
                 }
             },
             onRemoveImage = { viewModel.removeSelectedImage() }
@@ -481,9 +549,11 @@ fun ChatBubble(message: ChatMessage) {
 fun ChatInputBar(
     text: String,
     selectedImage: Bitmap?,
+    isRecording: Boolean,
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     onCameraClick: () -> Unit,
+    onMicClick: () -> Unit,
     onRemoveImage: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().background(Color.White)) {
@@ -511,6 +581,13 @@ fun ChatInputBar(
         ) {
             IconButton(onClick = onCameraClick) {
                 Icon(Icons.Default.CameraAlt, contentDescription = "Camera", tint = RMNavy)
+            }
+            IconButton(onClick = onMicClick) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Voice Input",
+                    tint = if (isRecording) Color.Red else RMNavy
+                )
             }
             TextField(
                 value = text,

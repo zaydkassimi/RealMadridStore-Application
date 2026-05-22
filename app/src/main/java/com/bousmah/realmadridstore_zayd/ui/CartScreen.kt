@@ -143,7 +143,7 @@ fun SummaryRow(label: String, value: String, isTotal: Boolean = false) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PaymentScreen(onOrderConfirmed: () -> Unit) {
+fun PaymentScreen(viewModel: ShopViewModel, onOrderConfirmed: () -> Unit) {
     var cardNumber by remember { mutableStateOf("") }
     var holderName by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf("") }
@@ -209,7 +209,11 @@ fun PaymentScreen(onOrderConfirmed: () -> Unit) {
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = { showDialog = true },
+            onClick = { 
+                viewModel.placeOrder {
+                    showDialog = true 
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = RMGold, contentColor = RMNavy),
             shape = RoundedCornerShape(8.dp)

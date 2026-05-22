@@ -9,7 +9,7 @@ activityCompose = "1.13.0"
 kotlin = "2.2.10"
 composeBom = "2025.12.00"
 navigationCompose = "2.9.8"
-mapsCompose = "8.3.0"
+mapsCompose = "4.3.3"
 retrofit = "3.0.0"
 coil = "2.7.0"
 composeIcons = "1.7.8"
@@ -18,7 +18,6 @@ playServicesLocation = "21.3.0"
 google-services = "4.4.2"
 firebase-bom = "33.1.0"
 kotlinx-coroutines-play-services = "1.8.1"
-generativeai = "0.9.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,7 +46,6 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines-play-services" }
-generativeai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "generativeai" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

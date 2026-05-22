@@ -153,8 +153,7 @@ fun MainScreen() {
                     })
                 }
                 composable(Screen.Payment.route) {
-                    PaymentScreen(onOrderConfirmed = {
-                        shopViewModel.clearCart()
+                    PaymentScreen(shopViewModel, onOrderConfirmed = {
                         navController.popBackStack(Screen.Shop.route, false)
                     })
                 }

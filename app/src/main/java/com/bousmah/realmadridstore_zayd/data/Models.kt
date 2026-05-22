@@ -31,3 +31,10 @@ data class ChatMessage(
     val image: Bitmap? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+data class OrderRequest(
+    val items: List<CartItem>,
+    val total: Double,
+    val userId: String = "anonymous",
+    val timestamp: Long = System.currentTimeMillis()
+)

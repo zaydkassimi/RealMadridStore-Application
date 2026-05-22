@@ -2,13 +2,14 @@ package com.bousmah.realmadridstore_zayd.ui
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.bousmah.realmadridstore_zayd.data.BackendRepository
 import com.bousmah.realmadridstore_zayd.data.CartItem
-import com.bousmah.realmadridstore_zayd.data.FirebaseRepository
 import com.bousmah.realmadridstore_zayd.data.MockData
 import com.bousmah.realmadridstore_zayd.data.Product
 import kotlinx.coroutines.flow.*
@@ -22,7 +23,8 @@ data class ShopUiState(
     val selectedCategory: String = "All",
     val cartItems: List<CartItem> = emptyList(),
     val wishlist: Set<String> = emptySet(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val orderSuccess: Boolean = false
 ) {
     val cartItemCount: Int get() = cartItems.sumOf { it.quantity }
     val subtotal: Double get() = cartItems.sumOf { it.product.price * it.quantity }
@@ -33,7 +35,7 @@ data class ShopUiState(
 class ShopViewModel(application: Application) : AndroidViewModel(application) {
     private val dataStore = application.applicationContext.dataStore
     private val WISHLIST_KEY = stringSetPreferencesKey("wishlist_ids")
-    private val repository = FirebaseRepository()
+    private val repository = BackendRepository()
 
     private val _uiState = MutableStateFlow(ShopUiState())
     val uiState: StateFlow<ShopUiState> = _uiState.asStateFlow()
@@ -48,16 +50,15 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadProducts() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            var products = repository.getAllProducts()
-            
-            if (products.isEmpty()) {
-                // First launch: Seed Firestore
-                repository.saveProducts(MockData.products)
-                products = repository.getAllProducts()
+            try {
+                val products = repository.getProducts()
+                allProducts = if (products.isEmpty()) MockData.products else products
+            } catch (e: Exception) {
+                Log.e("ShopViewModel", "Failed to load products from backend, using mock data", e)
+                allProducts = MockData.products
             }
             
-            allProducts = products
-            _uiState.update { it.copy(products = products, isLoading = false) }
+            _uiState.update { it.copy(products = allProducts, isLoading = false) }
             applyFilter(_uiState.value.selectedCategory)
         }
     }
@@ -129,6 +130,19 @@ class ShopViewModel(application: Application) : AndroidViewModel(application) {
     fun removeFromCart(product: Product) {
         _uiState.update { state ->
             state.copy(cartItems = state.cartItems.filter { it.product.id != product.id })
+        }
+    }
+
+    fun placeOrder(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                val currentState = _uiState.value
+                repository.createOrder(currentState.cartItems, currentState.total)
+                clearCart()
+                onSuccess()
+            } catch (e: Exception) {
+                Log.e("ShopViewModel", "Failed to place order", e)
+            }
         }
     }
 
